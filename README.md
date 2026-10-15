@@ -12,7 +12,6 @@ Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
 | -------------	| -------------	| -------------	|
 | alice 		| à définir 	| user 			|
 | bob 			| à définir 	| user, admin 	|
-| -------------	| -------------	| -------------	|
 
 ## Architecture
 | Composant 		| Technologie 	| Port local 	|
@@ -21,7 +20,6 @@ Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
 | Identité 			| Keycloak 		| 8180 			|
 | API 				| Spring Boot 3 | 8081 			|
 | Base de données 	| PostgreSQL 	| 5432 			|
-| -----------------	| -------------	| -------------	|
 
 ## Lancement en local
 À compléter.
