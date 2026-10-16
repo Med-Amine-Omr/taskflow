@@ -10,8 +10,8 @@ Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
 ## Identifiants de test
 | Utilisateur 	| Mot de passe 	| Rôles 		|
 | -------------	| -------------	| -------------	|
-| alice 		| à définir 	| user 			|
-| bob 			| à définir 	| user, admin 	|
+| alice 		| Alice@2026 	| user 			|
+| bob 			| Bob@2026 		| user, admin 	|
 
 ## Architecture
 | Composant 		| Technologie 	| Port local 	|
@@ -51,6 +51,12 @@ Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
   versionné) ; `.env.example` documente les variables attendues.
 - Keycloak tourne en mode `start-dev` en local ; le mode production est utilisé
   pour le déploiement en ligne.
+- Keycloak : realm `taskflow`, client public `taskflow-front` en Authorization Code
+  + PKCE (S256) ; Direct Access Grants et Implicit désactivés.
+- Le rôle `user` fait partie des rôles par défaut du realm : tout nouvel utilisateur le reçoit.
+- Le realm (avec les utilisateurs de test) est exporté dans `keycloak/taskflow-realm.json`
+  et importé automatiquement au démarrage de Keycloak (`--import-realm`). Si le realm
+  existe déjà en base, l'import est ignoré.
 
 ## Limites connues
 À compléter.
