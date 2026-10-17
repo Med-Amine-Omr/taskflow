@@ -13,6 +13,9 @@ export function formatDate(isoDate: string | null): string {
     return '—'
   }
   const [year, month, day] = isoDate.split('-').map(Number)
+  if (!year || !month || !day) {
+    return isoDate // format inattendu : on l'affiche tel quel plutôt que planter
+  }
   return new Date(year, month - 1, day).toLocaleDateString('fr-FR')
 }
 
