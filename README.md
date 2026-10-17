@@ -5,7 +5,16 @@ Application web de gestion de tâches dont l'authentification et les autorisatio
 Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
 
 ## Adresses en ligne
-À compléter lors du déploiement (Partie 6).
+
+| Service | Adresse |
+| --- | --- |
+| Application | https://taskflow-front.onrender.com |
+| API | https://taskflow-api.onrender.com |
+| Documentation OpenAPI | https://taskflow-api.onrender.com/swagger-ui.html |
+| Health check de l'API | https://taskflow-api.onrender.com/actuator/health |
+| Keycloak | https://taskflow-keycloak.onrender.com |
+
+> Premier accès : l'API et Keycloak sont hébergés gratuitement et s'endorment après 15 minutes d'inactivité. Le premier chargement peut prendre plusieurs minutes (surtout Keycloak). Les accès suivants sont rapides.
 
 ## Identifiants de test
 | Utilisateur 	| Mot de passe 	| Rôles 		|
@@ -126,5 +135,23 @@ GitHub Actions (`.github/workflows/ci.yml`), à chaque push sur toutes les branc
 ## Limites connues
 À compléter.
 
+## Déploiement
+
+Hébergement sur Render (offre gratuite), région Frankfurt, HTTPS fourni par Render :
+- Frontend : site statique (build Vite ; adresses injectées via les variables `VITE_*`) ;
+- API et Keycloak : services Docker construits depuis `backend/Dockerfile` et `keycloak/Dockerfile` (Keycloak pré-construit, démarré en mode production) ;
+- PostgreSQL : base Render, schéma `public` pour l'API, schéma `keycloak` pour Keycloak.
+
+Le realm est importé au premier démarrage de Keycloak ; ses URL (`TASKFLOW_FRONT_URL`, `TASKFLOW_API_URL`) sont injectées par variables d'environnement.
+
+Déploiement automatique : chaque service est en mode *Auto-Deploy : After CI Checks Pass* sur la branche `main`. Après un push, Render attend la réussite de toutes les vérifications GitHub Actions avant de déployer ; si un test échoue, rien n'est déployé.
+
+Secrets : uniquement dans les variables d'environnement de Render (mot de passe de la base, compte admin Keycloak). Aucun secret dans le dépôt ni dans son historique (vérifié avec Gitleaks).
+
 ## Limites de l'hébergement
-À compléter lors du déploiement (Partie 6).
+
+- Mise en veille des services web gratuits après 15 minutes sans trafic ; réveil en environ une minute (plusieurs minutes pour Keycloak sur 0,1 CPU).
+- 512 Mo de RAM et 0,1 CPU par service : démarrages lents, Keycloak à la limite de la mémoire.
+- 750 heures d'instance gratuites par mois pour l'ensemble des services.
+- Base PostgreSQL gratuite : 1 Go, sans sauvegarde, **expire le JJ/MM/AAAA** (30 jours après sa création le JJ/MM/AAAA).
+- Une seule base gratuite : Keycloak et l'API partagent la base et l'utilisateur PostgreSQL (séparation par schémas). En local, ce sont deux bases et deux utilisateurs distincts.
