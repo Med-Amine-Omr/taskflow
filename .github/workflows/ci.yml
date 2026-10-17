@@ -1,0 +1,98 @@
+name: CI
+
+# "Exécute tous les tests à chaque push" : sur toutes les branches
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# Un nouveau push annule l'exécution précédente encore en cours sur la même branche
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ==========================================================
+  #  API : compilation + tous les tests (web, unitaires, intégration)
+  # ==========================================================
+  backend:
+    name: API - compilation et tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compiler et lancer tous les tests
+        run: ./mvnw -B verify
+
+      - name: Publier les rapports de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports-tests-api
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+
+  # ==========================================================
+  #  Frontend : lint, typage, tests de composants, build
+  # ==========================================================
+  frontend:
+    name: Frontend - lint, tests et build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Installer Node.js 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Lint (sans correction automatique)
+        run: |
+          npx oxlint .
+          npx eslint .
+
+      - name: Vérification TypeScript
+        run: npm run type-check
+
+      - name: Tests unitaires des composants
+        run: npm run test:unit -- --run
+
+      - name: Build de production
+        run: npm run build-only
+
+  # ==========================================================
+  #  Images Docker : vérifier qu'elles se construisent
+  # ==========================================================
+  docker:
+    name: Images Docker
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+
+      - name: Construire les images (avec le modèle de configuration)
+        run: |
+          cp .env.example .env
+          docker compose build
