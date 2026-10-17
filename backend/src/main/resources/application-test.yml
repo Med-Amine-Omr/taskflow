@@ -1,0 +1,13 @@
+# Valeurs utilisées uniquement par les tests (profil "test").
+# Elles remplacent le fichier .env, absent en CI.
+# Aucune de ces adresses n'est contactée : le décodeur JWT est simulé
+# et la base est fournie par Testcontainers.
+KEYCLOAK_ISSUER_URI: http://keycloak.test/realms/taskflow
+KEYCLOAK_JWK_SET_URI: http://keycloak.test/realms/taskflow/protocol/openid-connect/certs
+CORS_ALLOWED_ORIGINS: http://localhost:5173
+APP_TIMEZONE: Europe/Paris
+DB_HOST: localhost
+DB_PORT: 5432
+TASKFLOW_DB_NAME: taskflow
+TASKFLOW_DB_USER: test
+TASKFLOW_DB_PASSWORD: test

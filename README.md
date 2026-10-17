@@ -41,6 +41,17 @@ Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
 ### Réinitialiser complètement les données
 `docker compose down -v`
 
+### Lancer l'API en dehors de Docker (développement)
+PostgreSQL et Keycloak doivent tourner (`docker compose up -d postgres keycloak`).
+L'API lit automatiquement le fichier `.env` de la racine.
+
+    cd backend
+    ./mvnw spring-boot:run        # Windows : .\mvnw.cmd spring-boot:run
+
+- API : http://localhost:8081
+- Swagger UI : http://localhost:8081/swagger-ui.html
+- Health check : http://localhost:8081/actuator/health
+
 ## Choix techniques
 - Monorepo : frontend, API et configuration dans un seul dépôt.
 - Un seul serveur PostgreSQL contenant deux bases séparées (`keycloak` et
@@ -57,6 +68,17 @@ Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
 - Le realm (avec les utilisateurs de test) est exporté dans `keycloak/taskflow-realm.json`
   et importé automatiquement au démarrage de Keycloak (`--import-realm`). Si le realm
   existe déjà en base, l'import est ignoré.
+- API en couches (controller / service / repository) ; les entités ne sortent jamais du service, seuls des DTO (records Java) sont exposés.
+- Schéma géré par Flyway (`db/migration`), Hibernate en mode `validate`.
+- Identifiants en UUID (non devinables).
+- Le propriétaire est le claim `sub` du jeton (identifiant stable) ; le nom affiché vient de `preferred_username`.
+- Accès à la tâche d'un autre utilisateur : réponse 404 (et non 403) pour ne pas révéler son existence.
+- Rôles lus dans `realm_access.roles` et convertis en autorités `ROLE_user` / `ROLE_admin`.
+- L'API récupère les clés de Keycloak via `KEYCLOAK_JWK_SET_URI` et vérifie l'issuer public `KEYCLOAK_ISSUER_URI` (indispensable quand l'API tourne dans Docker).
+- Format d'erreur unique (timestamp, status, error, message, path, fieldErrors), y compris pour les 401 et 403 produits par Spring Security.
+- Statistiques : « terminée » = completed ; « en retard » = non terminée et échéance antérieure à aujourd'hui (fuseau `APP_TIMEZONE`) ; « en cours » = le reste.
+- Priorités exposées en anglais (`LOW`, `NORMAL`, `HIGH`), traduites dans l'interface.
+- Tri limité à une liste blanche (`dueDate`, `createdAt`), taille de page max 100.
 
 ## Limites connues
 À compléter.
