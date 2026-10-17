@@ -96,3 +96,6 @@ jobs:
         run: |
           cp .env.example .env
           docker compose build
+
+      - name: Construire l'image Keycloak de production
+        run: docker build -t taskflow-keycloak:ci ./keycloak
