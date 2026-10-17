@@ -104,6 +104,18 @@ Aucune instance Keycloak n'est nécessaire : les jetons sont simulés avec `spri
 - Tests unitaires : règle « en retard » (horloge fixe), statistiques, pagination et tri.
 - Test d'intégration (`TaskApiIntegrationTest`) : parcours complet sur un vrai PostgreSQL 16 lancé par Testcontainers (Docker requis), incluant l'isolation des données entre utilisateurs et les endpoints d'administration.
 
+### Frontend (Vue)
+    cd frontend
+    npm run test:unit -- --run
+
+Tests unitaires de composants avec Vitest et Vue Test Utils (environnement jsdom), sans Keycloak (module simulé) ni API :
+- `AppNavbar` : nom affiché, lien Administration réservé aux admins, déconnexion Keycloak ;
+- `TaskItem` : mise en évidence des tâches en retard, changement de statut, suppression ;
+- `TaskForm` : validation, données envoyées, affichage des erreurs de l'API par champ ;
+- `ConfirmDialog` : confirmation et annulation ;
+- garde de navigation : redirection des non-admins (y compris par URL directe) ;
+- utilitaires : lecture du format d'erreur unique, libellés et dates.
+
 ## Limites connues
 À compléter.
 
