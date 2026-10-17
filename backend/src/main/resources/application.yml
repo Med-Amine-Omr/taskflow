@@ -29,6 +29,7 @@ spring:
 
 server:
   port: ${API_PORT:8081}
+  forward-headers-strategy: framework
   error:
     include-stacktrace: never
 
