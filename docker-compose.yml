@@ -7,15 +7,15 @@ services:
     container_name: taskflow-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:?copiez .env.example en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copiez .env.example en .env}
       POSTGRES_DB: ${POSTGRES_DB}
       KEYCLOAK_DB_NAME: ${KEYCLOAK_DB_NAME}
       KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER}
-      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?copiez .env.example en .env}
       TASKFLOW_DB_NAME: ${TASKFLOW_DB_NAME}
       TASKFLOW_DB_USER: ${TASKFLOW_DB_USER}
-      TASKFLOW_DB_PASSWORD: ${TASKFLOW_DB_PASSWORD}
+      TASKFLOW_DB_PASSWORD: ${TASKFLOW_DB_PASSWORD:?copiez .env.example en .env}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -40,7 +40,7 @@ services:
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?copiez .env.example en .env}
       KC_HEALTH_ENABLED: "true"
     ports:
       - "${KEYCLOAK_PORT:-8180}:8080"
@@ -53,6 +53,61 @@ services:
       timeout: 5s
       retries: 15
       start_period: 60s
+
+  api:
+    build:
+      context: ./backend
+    image: taskflow-api:local
+    container_name: taskflow-api
+    restart: unless-stopped
+    environment:
+      API_PORT: 8081
+      DB_HOST: postgres
+      DB_PORT: 5432
+      TASKFLOW_DB_NAME: ${TASKFLOW_DB_NAME}
+      TASKFLOW_DB_USER: ${TASKFLOW_DB_USER}
+      TASKFLOW_DB_PASSWORD: ${TASKFLOW_DB_PASSWORD}
+      # Issuer = adresse vue par le NAVIGATEUR (celle inscrite dans le jeton)
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+      # Clés de signature récupérées via le RÉSEAU DOCKER (nom du service)
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/taskflow/protocol/openid-connect/certs
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Paris}
+    ports:
+      - "${API_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+    image: taskflow-frontend:local
+    container_name: taskflow-frontend
+    restart: unless-stopped
+    environment:
+      API_URL: ${VITE_API_URL}
+      KEYCLOAK_URL: ${VITE_KEYCLOAK_URL}
+      KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID}
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres-data:
