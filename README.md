@@ -24,43 +24,37 @@ Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
 ## Lancement en local
 
 ### Prérequis
-- Docker et Docker Compose
+- Docker Desktop (ou Docker Engine) avec Docker Compose, c'est-à-dire la commande `docker compose` (et non l'ancienne commande `docker-compose`)
 - Ports libres : 5173, 8180, 8081, 5432
 
-### Démarrage
-1. Cloner le dépôt puis se placer dans le dossier :
-   `git clone https://github.com/<ton-pseudo>/taskflow.git && cd taskflow`
-2. Créer le fichier d'environnement : `cp .env.example .env`
-   (adapter les mots de passe si besoin)
-3. Lancer : `docker compose up -d`
-4. Vérifier que les services sont `healthy` : `docker compose ps`
+### Démarrage (une seule commande)
+    git clone https://github.com/Med-Amine-Omr/taskflow.git
+    cd taskflow
+    cp .env.example .env
+    docker compose up -d --build
 
-### Accès
-- Keycloak : http://localhost:8180
+Le premier démarrage prend 2 à 3 minutes (construction des images). Les quatre services doivent apparaître `healthy` :
 
-### Réinitialiser complètement les données
-`docker compose down -v`
+    docker compose ps
 
-### Lancer l'API en dehors de Docker (développement)
-PostgreSQL et Keycloak doivent tourner (`docker compose up -d postgres keycloak`).
-L'API lit automatiquement le fichier `.env` de la racine.
+| Service | Adresse |
+| --- | --- |
+| Application | http://localhost:5173 |
+| API | http://localhost:8081 |
+| Documentation OpenAPI (Swagger UI) | http://localhost:8081/swagger-ui.html |
+| Health check de l'API | http://localhost:8081/actuator/health |
+| Console Keycloak | http://localhost:8180 (identifiants `KC_BOOTSTRAP_ADMIN_*` du `.env`) |
 
-    cd backend
-    ./mvnw spring-boot:run        # Windows : .\mvnw.cmd spring-boot:run
+Au démarrage, la base PostgreSQL crée les bases `keycloak` et `taskflow`, Keycloak importe le realm `taskflow` (avec alice et bob), et l'API applique ses migrations Flyway.
 
-- API : http://localhost:8081
-- Swagger UI : http://localhost:8081/swagger-ui.html
-- Health check : http://localhost:8081/actuator/health
+### Arrêter / réinitialiser
+    docker compose down        # arrête (les données sont conservées)
+    docker compose down -v     # arrête et supprime toutes les données
 
-### Lancer le frontend en dehors de Docker (développement)
-PostgreSQL, Keycloak et l'API doivent tourner. Vite lit les variables `VITE_*` du
-fichier `.env` à la racine du dépôt.
-
-    cd frontend
-    npm install
-    npm run dev
-
-- Application : http://localhost:5173
+### Mode développement (rechargement à chaud)
+    docker compose up -d postgres keycloak
+    cd backend  && ./mvnw spring-boot:run     # Windows : .\mvnw.cmd spring-boot:run
+    cd frontend && npm install && npm run dev
 
 ## Choix techniques
 - Monorepo : frontend, API et configuration dans un seul dépôt.
@@ -91,6 +85,12 @@ fichier `.env` à la racine du dépôt.
 - Configuration sans adresse en dur : variables `VITE_*` en développement, `public/config.js` généré au démarrage du conteneur en Docker.
 - « 5 prochaines échéances » : tâches non terminées avec échéance, triées par date (les tâches en retard apparaissent en premier).
 - Le filtre par utilisateur de l'administration liste les utilisateurs ayant au moins une tâche (issus de `/api/admin/stats`).
+- Images Docker multi-étapes : JDK/Maven et Node uniquement pour la compilation ; images finales JRE 21 (utilisateur non root) et Nginx.
+- Frontend : une seule image pour tous les environnements ; `config.js` est généré au démarrage du conteneur à partir de ses variables d'environnement.
+- Nginx : repli vers `index.html` pour les routes de l'application monopage, cache long des fichiers versionnés, aucun cache pour `index.html` et `config.js`.
+- Health checks Docker sur les quatre services (API : `/actuator/health`) et démarrage ordonné (`depends_on: service_healthy`) : PostgreSQL → Keycloak → API → frontend.
+- Dans Docker, l'API récupère les clés de Keycloak via le réseau interne (`keycloak:8080`) tout en validant l'issuer public (`localhost:8180`).
+- Variables sensibles obligatoires (`${VAR:?...}`) : Compose refuse de démarrer sans `.env`.
 
 ## Tests
 
@@ -115,6 +115,13 @@ Tests unitaires de composants avec Vitest et Vue Test Utils (environnement jsdom
 - `ConfirmDialog` : confirmation et annulation ;
 - garde de navigation : redirection des non-admins (y compris par URL directe) ;
 - utilitaires : lecture du format d'erreur unique, libellés et dates.
+
+## Intégration continue
+
+GitHub Actions (`.github/workflows/ci.yml`), à chaque push sur toutes les branches :
+1. **API** : `./mvnw verify` (compilation et tous les tests, dont le test d'intégration PostgreSQL via Testcontainers) ; rapports de tests publiés en artefact.
+2. **Frontend** (en parallèle) : lint, vérification TypeScript, tests de composants (Vitest), build de production.
+3. **Images Docker** : construction des deux images, si les deux jobs précédents ont réussi.
 
 ## Limites connues
 À compléter.
