@@ -5,7 +5,7 @@
 KEYCLOAK_ISSUER_URI: http://keycloak.test/realms/taskflow
 KEYCLOAK_JWK_SET_URI: http://keycloak.test/realms/taskflow/protocol/openid-connect/certs
 CORS_ALLOWED_ORIGINS: http://localhost:5173
-APP_TIMEZONE: Europe/Paris
+APP_TIMEZONE: Africa/Tunis
 DB_HOST: localhost
 DB_PORT: 5432
 TASKFLOW_DB_NAME: taskflow
