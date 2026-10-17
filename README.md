@@ -52,22 +52,24 @@ L'API lit automatiquement le fichier `.env` de la racine.
 - Swagger UI : http://localhost:8081/swagger-ui.html
 - Health check : http://localhost:8081/actuator/health
 
+### Lancer le frontend en dehors de Docker (développement)
+PostgreSQL, Keycloak et l'API doivent tourner. Vite lit les variables `VITE_*` du
+fichier `.env` à la racine du dépôt.
+
+    cd frontend
+    npm install
+    npm run dev
+
+- Application : http://localhost:5173
+
 ## Choix techniques
 - Monorepo : frontend, API et configuration dans un seul dépôt.
-- Un seul serveur PostgreSQL contenant deux bases séparées (`keycloak` et
-  `taskflow`), chacune avec son propre utilisateur (principe du moindre privilège).
-  Les bases sont créées automatiquement au premier démarrage par un script
-  d'initialisation.
-- Toute la configuration passe par des variables d'environnement (`.env`, non
-  versionné) ; `.env.example` documente les variables attendues.
-- Keycloak tourne en mode `start-dev` en local ; le mode production est utilisé
-  pour le déploiement en ligne.
-- Keycloak : realm `taskflow`, client public `taskflow-front` en Authorization Code
-  + PKCE (S256) ; Direct Access Grants et Implicit désactivés.
+- Un seul serveur PostgreSQL contenant deux bases séparées (`keycloak` et `taskflow`), chacune avec son propre utilisateur (principe du moindre privilège). Les bases sont créées automatiquement au premier démarrage par un script d'initialisation.
+- Toute la configuration passe par des variables d'environnement (`.env`, non versionné) ; `.env.example` documente les variables attendues.
+- Keycloak tourne en mode `start-dev` en local ; le mode production est utilisé pour le déploiement en ligne.
+- Keycloak : realm `taskflow`, client public `taskflow-front` en Authorization Code + PKCE (S256) ; Direct Access Grants et Implicit désactivés.
 - Le rôle `user` fait partie des rôles par défaut du realm : tout nouvel utilisateur le reçoit.
-- Le realm (avec les utilisateurs de test) est exporté dans `keycloak/taskflow-realm.json`
-  et importé automatiquement au démarrage de Keycloak (`--import-realm`). Si le realm
-  existe déjà en base, l'import est ignoré.
+- Le realm (avec les utilisateurs de test) est exporté dans `keycloak/taskflow-realm.json` et importé automatiquement au démarrage de Keycloak (`--import-realm`). Si le realm existe déjà en base, l'import est ignoré.
 - API en couches (controller / service / repository) ; les entités ne sortent jamais du service, seuls des DTO (records Java) sont exposés.
 - Schéma géré par Flyway (`db/migration`), Hibernate en mode `validate`.
 - Identifiants en UUID (non devinables).
@@ -80,6 +82,15 @@ L'API lit automatiquement le fichier `.env` de la racine.
 - Priorités exposées en anglais (`LOW`, `NORMAL`, `HIGH`), traduites dans l'interface.
 - Tri limité à une liste blanche (`dueDate`, `createdAt`), taille de page max 100.
 - Tests d'intégration sur un vrai PostgreSQL (Testcontainers) plutôt que H2, pour tester les mêmes migrations Flyway et le même SQL qu'en production.
+- Frontend Vue 3 (Composition API, `<script setup>`, TypeScript), Vue Router, Pinia, Axios.
+- Pas de librairie de composants : CSS maison responsive (menu repliable, cartes, tableaux défilants), pour garder un code léger et des tests simples.
+- `keycloak-js` initialisé avant le montage de l'application (`login-required`, PKCE S256) : aucun écran n'est accessible sans connexion.
+- Jeton renouvelé avant chaque appel (`updateToken(30)`) et à son expiration.
+- Garde de navigation `beforeEach` sur la route Administration (y compris accès par URL directe) ; la sécurité réelle reste assurée par l'API.
+- Déconnexion via `keycloak.logout()` : la session SSO est fermée côté Keycloak.
+- Configuration sans adresse en dur : variables `VITE_*` en développement, `public/config.js` généré au démarrage du conteneur en Docker.
+- « 5 prochaines échéances » : tâches non terminées avec échéance, triées par date (les tâches en retard apparaissent en premier).
+- Le filtre par utilisateur de l'administration liste les utilisateurs ayant au moins une tâche (issus de `/api/admin/stats`).
 
 ## Tests
 
