@@ -1,34 +1,84 @@
 # TaskFlow, Gestionnaire de tâches sécurisé
 
-Application web de gestion de tâches dont l'authentification et les autorisations reposent sur Keycloak.
+![CI](https://github.com/Med-Amine-Omr/taskflow/actions/workflows/ci.yml/badge.svg)
 
-Stack : Vue 3 · Spring Boot 3 (Java 17+) · Keycloak · PostgreSQL · Docker
+Application web de gestion de tâches dont l'authentification et les autorisations reposent sur Keycloak. Un utilisateur gère ses propres tâches ; un administrateur consulte et supprime les tâches de tous les utilisateurs.
+
+Stack : Vue 3 · Spring Boot 3 (Java 21) · Keycloak 26 · PostgreSQL 16 · Docker
+
+## Sommaire
+- [Adresses en ligne](#adresses-en-ligne)
+- [Identifiants de test](#identifiants-de-test)
+- [Architecture](#architecture)
+- [Lancement en local](#lancement-en-local)
+- [Tests](#tests)
+- [Intégration continue](#intégration-continue)
+- [Déploiement](#déploiement)
+- [Choix techniques](#choix-techniques)
+- [Limites connues](#limites-connues)
+- [Limites de l'hébergement](#limites-de-lhébergement)
 
 ## Adresses en ligne
 
-| Service | Adresse |
-| --- | --- |
-| Application | https://taskflow-front.onrender.com |
-| API | https://taskflow-api.onrender.com |
-| Documentation OpenAPI | https://taskflow-api.onrender.com/swagger-ui.html |
-| Health check de l'API | https://taskflow-api.onrender.com/actuator/health |
-| Keycloak | https://taskflow-keycloak.onrender.com |
+| Service 				| Adresse 												|
+| --------------------- | -----------------------------------------------------	|
+| Application 			| https://taskflow-front-g71y.onrender.com 				|
+| API 					| https://taskflow-api-ycma.onrender.com 				|
+| Documentation OpenAPI | https://taskflow-api-ycma.onrender.com/swagger-ui.html|
+| Health check de l'API | https://taskflow-api-ycma.onrender.com/actuator/health|
+| Keycloak 				| https://taskflow-keycloak.onrender.com 				|
 
 > Premier accès : l'API et Keycloak sont hébergés gratuitement et s'endorment après 15 minutes d'inactivité. Le premier chargement peut prendre plusieurs minutes (surtout Keycloak). Les accès suivants sont rapides.
 
 ## Identifiants de test
-| Utilisateur 	| Mot de passe 	| Rôles 		|
-| -------------	| -------------	| -------------	|
-| alice 		| Alice@2026 	| user 			|
-| bob 			| Bob@2026 		| user, admin 	|
+| Utilisateur 	| Mot de passe 	| Rôles 		| Accès 							|
+| -------------	| -------------	| -------------	| ---------------------------------	|
+| alice 		| Alice@2026 	| user 			| Ses propres tâches 				|
+| bob 			| Bob@2026 		| user, admin 	| Ses tâches + page Administration 	|
+
+Ces comptes sont valables en local comme en ligne (ils sont dans le realm importé).
 
 ## Architecture
 | Composant 		| Technologie 	| Port local 	|
 | -----------------	| -------------	| -------------	|
-| Frontend 			| Vue 3 		| 5173 			|
-| Identité 			| Keycloak 		| 8180 			|
+| Frontend | Vue 3 (Vite, Pinia, Vue Router) servi par Nginx | 5173 |
+| Identité | Keycloak 26 (realm `taskflow`) | 8180 |
 | API 				| Spring Boot 3 | 8081 			|
-| Base de données 	| PostgreSQL 	| 5432 			|
+| Base de données 	| PostgreSQL 16	| 5432 			|
+
+Flux d'authentification : le frontend redirige vers Keycloak (Authorization Code + PKCE), reçoit un jeton JWT, l'envoie à l'API à chaque requête (`Authorization: Bearer`) ; l'API vérifie la signature, l'émetteur et les rôles (`realm_access.roles`).
+
+### Structure du dépôt
+    taskflow/
+    ├── backend/            API Spring Boot (Dockerfile, migrations Flyway, tests)
+    ├── frontend/           Application Vue 3 (Dockerfile, Nginx, tests Vitest)
+    ├── keycloak/           Export du realm + image Keycloak de production
+    ├── docker/postgres/    Script de création des bases locales
+    ├── .github/workflows/  Intégration continue
+    ├── docker-compose.yml  Lancement complet en une commande
+    └── .env.example        Modèle de configuration
+
+### Endpoints de l'API
+
+| Méthode | URL | Rôle | Description |
+| --- | --- | --- | --- |
+| GET | /api/me | user | Utilisateur connecté |
+| GET | /api/tasks | user | Mes tâches (pagination, filtres `completed`, `priority`, tri `dueDate`/`createdAt`) |
+| GET | /api/tasks/{id} | user | Détail d'une de mes tâches |
+| POST | /api/tasks | user | Création |
+| PUT | /api/tasks/{id} | user | Modification |
+| PATCH | /api/tasks/{id}/toggle | user | Changement de statut |
+| DELETE | /api/tasks/{id} | user | Suppression |
+| GET | /api/tasks/stats | user | Terminées / en cours / en retard |
+| GET | /api/admin/tasks | admin | Toutes les tâches (filtre `ownerId`) |
+| DELETE | /api/admin/tasks/{id} | admin | Suppression de n'importe quelle tâche |
+| GET | /api/admin/stats | admin | Statistiques par utilisateur et par statut |
+
+Format d'erreur unique :
+
+    { "timestamp": "...", "status": 400, "error": "Bad Request",
+      "message": "Données invalides", "path": "/api/tasks",
+      "fieldErrors": [ { "field": "title", "message": "Le titre est obligatoire" } ] }
 
 ## Lancement en local
 
@@ -46,13 +96,13 @@ Le premier démarrage prend 2 à 3 minutes (construction des images). Les quatre
 
     docker compose ps
 
-| Service | Adresse |
-| --- | --- |
-| Application | http://localhost:5173 |
-| API | http://localhost:8081 |
-| Documentation OpenAPI (Swagger UI) | http://localhost:8081/swagger-ui.html |
-| Health check de l'API | http://localhost:8081/actuator/health |
-| Console Keycloak | http://localhost:8180 (identifiants `KC_BOOTSTRAP_ADMIN_*` du `.env`) |
+| Service 								| Adresse 																|
+| ------------------------------------- | --------------------------------------------------------------------- |
+| Application 							| http://localhost:5173 												|
+| API 									| http://localhost:8081 												|
+| Documentation OpenAPI (Swagger UI) 	| http://localhost:8081/swagger-ui.html 								|
+| Health check de l'API 				| http://localhost:8081/actuator/health 								|
+| Console Keycloak 						| http://localhost:8180 (identifiants `KC_BOOTSTRAP_ADMIN_*` du `.env`)	|
 
 Au démarrage, la base PostgreSQL crée les bases `keycloak` et `taskflow`, Keycloak importe le realm `taskflow` (avec alice et bob), et l'API applique ses migrations Flyway.
 
@@ -132,9 +182,6 @@ GitHub Actions (`.github/workflows/ci.yml`), à chaque push sur toutes les branc
 2. **Frontend** (en parallèle) : lint, vérification TypeScript, tests de composants (Vitest), build de production.
 3. **Images Docker** : construction des deux images, si les deux jobs précédents ont réussi.
 
-## Limites connues
-À compléter.
-
 ## Déploiement
 
 Hébergement sur Render (offre gratuite), région Frankfurt, HTTPS fourni par Render :
@@ -147,6 +194,17 @@ Le realm est importé au premier démarrage de Keycloak ; ses URL (`TASKFLOW_FRO
 Déploiement automatique : chaque service est en mode *Auto-Deploy : After CI Checks Pass* sur la branche `main`. Après un push, Render attend la réussite de toutes les vérifications GitHub Actions avant de déployer ; si un test échoue, rien n'est déployé.
 
 Secrets : uniquement dans les variables d'environnement de Render (mot de passe de la base, compte admin Keycloak). Aucun secret dans le dépôt ni dans son historique (vérifié avec Gitleaks).
+
+## Limites connues
+
+- Pas d'inscription libre : les comptes sont créés dans Keycloak (le rôle `user` est attribué automatiquement à tout nouvel utilisateur).
+- Le filtre par utilisateur de l'administration ne liste que les utilisateurs ayant au moins une tâche (issus de `/api/admin/stats`) ; il n'y a pas d'endpoint de liste des  utilisateurs.
+- L'administrateur peut consulter et supprimer les tâches des autres, mais pas les modifier (conformément au sujet).
+- La règle « en retard » dépend du fuseau `APP_TIMEZONE` (Europe/Paris par défaut).
+- Le masquage du lien Administration côté frontend est un confort d'affichage ; la sécurité est assurée par l'API (403).
+- En local, Keycloak tourne en mode `start-dev` (HTTP) ; le mode production est utilisé en ligne.
+- Pas de tests de bout en bout (navigateur), non demandés par le sujet.
+- Pas de limitation du nombre de requêtes (rate limiting) sur l'API.
 
 ## Limites de l'hébergement
 
