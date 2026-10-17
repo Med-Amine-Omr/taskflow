@@ -79,6 +79,19 @@ L'API lit automatiquement le fichier `.env` de la racine.
 - Statistiques : « terminée » = completed ; « en retard » = non terminée et échéance antérieure à aujourd'hui (fuseau `APP_TIMEZONE`) ; « en cours » = le reste.
 - Priorités exposées en anglais (`LOW`, `NORMAL`, `HIGH`), traduites dans l'interface.
 - Tri limité à une liste blanche (`dueDate`, `createdAt`), taille de page max 100.
+- Tests d'intégration sur un vrai PostgreSQL (Testcontainers) plutôt que H2, pour tester les mêmes migrations Flyway et le même SQL qu'en production.
+
+## Tests
+
+### API (Spring Boot)
+    cd backend
+    ./mvnw verify          # Windows : .\mvnw.cmd verify
+
+Aucune instance Keycloak n'est nécessaire : les jetons sont simulés avec `spring-security-test` et le décodeur JWT est remplacé par un mock.
+
+- Tests web (`*WebTest`, `@WebMvcTest`) : réponses 200, 401 et 403, validation et format d'erreur unique. Ils ne nécessitent ni base de données, ni Docker.
+- Tests unitaires : règle « en retard » (horloge fixe), statistiques, pagination et tri.
+- Test d'intégration (`TaskApiIntegrationTest`) : parcours complet sur un vrai PostgreSQL 16 lancé par Testcontainers (Docker requis), incluant l'isolation des données entre utilisateurs et les endpoints d'administration.
 
 ## Limites connues
 À compléter.
